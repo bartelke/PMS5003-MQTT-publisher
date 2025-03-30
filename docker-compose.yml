@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mqtt-serial-app:
+    build: .
+    container_name: pms5003-mqtt
+    ports:
+      - "8080:8080"
+    environment:
+      - BROKER_URL=${BROKER_URL}
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+      - MQTT_PORT=${MQTT_PORT}
+    devices:
+      - "/dev/ttyS0:/dev/ttyS0"
+    restart: unless-stopped
