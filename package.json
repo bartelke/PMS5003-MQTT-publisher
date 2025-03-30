@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "dotenv": "^16.4.7",
+    "mqtt": "^5.10.4",
     "serialport": "^13.0.0"
   }
 }

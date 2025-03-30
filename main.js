@@ -1,50 +1,92 @@
+const mqtt = require('mqtt');
 const { SerialPort } = require('serialport');
-const { ReadlineParser } = require('@serialport/parser-readline');
+require('dotenv').config();
 
+// remember to set your topic:
+const topic = '[your_topic]';
+
+// serial port config
 const port = new SerialPort({
   path: '/dev/ttyS0',
   baudRate: 9600,
   dataBits: 8,
   stopBits: 1,
   parity: 'none',
-}, (err) => {
-  if (err) {
-    console.error('Error opening port:', err.message);
-  } else {
-    console.log('Serial port opened!');
-  }
 });
 
 let buffer = [];
 
-// Read raw data (Buffer) from the serial port
-port.on('data', (data) => {
-  // Add data to the buffer
-  buffer = buffer.concat(Array.from(data));
+port.on('error', (err) => {
+  console.error('Serial port error:', err.message);
+});
 
-  // Check if the buffer contains at least 32 bytes
+port.on('data', (data) => {
+  buffer.push(...data);
+  let pmData = '';
+
   while (buffer.length >= 32) {
-    // Check the frame header (0x42 0x4D)
-    const header = [buffer[0], buffer[1]];
-    if (header[0] === 0x42 && header[1] === 0x4D) {
-      // If the frame start is correct, read the data
+    // identify data frame (starting with 42 4D)
+    if (buffer[0] === 0x42 && buffer[1] === 0x4D) {
       const frame = buffer.slice(0, 32);
 
-      // Read PM1.0, PM2.5, PM10 data
-      const pm1_0 = (frame[4] << 8) + frame[5]; // PM1.0
-      const pm2_5 = (frame[6] << 8) + frame[7]; // PM2.5
-      const pm10 = (frame[8] << 8) + frame[9];  // PM10
+      // handle checksum:
+      const checksum = frame.slice(0, 30).reduce((sum, val) => sum + val, 0);
+      const receivedChecksum = (frame[30] << 8) + frame[31];
 
-      // Display the read data
-      console.log(`PM1.0: ${pm1_0} µg/m³`);
-      console.log(`PM2.5: ${pm2_5} µg/m³`);
-      console.log(`PM10: ${pm10} µg/m³ \n`);
+      if (checksum === receivedChecksum) {
+        // decode frame:
+        const pm1_0 = (frame[4] << 8) + frame[5];
+        const pm2_5 = (frame[6] << 8) + frame[7];
+        const pm10 = (frame[8] << 8) + frame[9];
 
-      // Remove the frame from the buffer
+        pmData = JSON.stringify({
+          pm1_0: pm1_0,
+          pm2_5: pm2_5,
+          pm10: pm10,
+          timestamp: new Date().toISOString(),
+        });
+
+        publishToBroker(pmData);
+      } else {
+        console.warn('Checksum error! Discarding frame.');
+      }
+
       buffer = buffer.slice(32);
     } else {
-      // If the frame start is incorrect, remove the first byte
-      buffer = buffer.slice(1);
+      buffer.shift();
     }
   }
 });
+
+function publishToBroker(data) {
+  const brokerUrl = process.env.BROKER_URL;
+
+  const options = {
+    clientId: `mqtt_client_${Math.random().toString(16).substr(2, 8)}`,
+    username: process.env.MQTT_USERNAME,  
+    password: process.env.MQTT_PASSWORD,
+    port: process.env.MQTT_PORT,
+  };
+
+  // set connection with MQTT broker
+  const client = mqtt.connect(brokerUrl, options);
+
+  client.on('connect', () => {
+    console.log('HiveMQ connected!');
+  
+    // Publish data frame:
+    client.publish(topic, data, { qos: 1, retain: false }, (error) => {
+      if (error) {
+        console.error(error);
+      } else {
+        console.log('Data published!');
+      }
+  
+      client.end();
+    });
+  });
+
+  client.on('error', (error) => {
+    console.error('Error with MQTT broker: ', error);
+  });
+}
