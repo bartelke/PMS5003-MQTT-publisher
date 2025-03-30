@@ -6,23 +6,14 @@ The **PMS5003** sensor is a popular air quality sensor that measures particulate
 
 ## Requirements
 
-- Node.js (version 12 or later)
+- Node.js (version 16 or later)
 - `serialport` library to communicate with the PMS5003 sensor
 - `mqtt` library to publish data to an MQTT broker
 
 ## Setup
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/your_username/PMS5003-MQTT-publisher.git
-   cd PMS5003-MQTT-publisher
-   
-2. **Install dependencies**:
-   ```bash
-   npm install
-   
-3. **Create a `.env` file**:
-   
+You can setup project manually or you can just simply build a docker container. Each option requires creating a .env file.
+
    In the root of your project, create a `.env` file to store your MQTT credentials and broker details. The file should look like this:
 
    ```env
@@ -30,11 +21,30 @@ The **PMS5003** sensor is a popular air quality sensor that measures particulate
    MQTT_PASSWORD=your_MQTT_password
    MQTT_PORT=port_for_your_service
    BROKER_URL=your_service_url
+```
+⚠️ **Please remember to also set up your topic in the code.** ⚠️
+   
+### Setup and run with Docker
+Build the Docker container with the following command:
 
-   Please remember to also set up your topic in the code.
+```bash
+docker compose build
+```
 
-4. **Run the application**:
-   After configuring the `.env` file with your credentials, run the application:
+Then, you can run the container with credidentials defined in .env file with docker-compose:
 
-   ```bash
-   npm start
+```bash
+docker compose up
+```
+### Manual setup
+You can also download the whole project and install all dependencies with Node Package Manager:
+
+```bash
+npm install
+```
+
+Then, run the code using:
+
+```bash
+npm start
+```
