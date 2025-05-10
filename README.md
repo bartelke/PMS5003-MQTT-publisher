@@ -21,6 +21,8 @@ You can setup project manually or you can just simply build a docker container. 
    MQTT_PASSWORD=your_MQTT_password
    MQTT_PORT=port_for_your_service
    BROKER_URL=your_service_url
+   PHONE_NUM=your_phone_number
+   SMS_API_TOKEN=your_token_from_SMS_API
 ```
 ⚠️ **Please remember to also set up your topic in the code.** ⚠️
    

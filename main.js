@@ -1,9 +1,12 @@
 const mqtt = require('mqtt');
 const { SerialPort } = require('serialport');
+const axios = require('axios');
+const qs = require('qs');
 require('dotenv').config();
 
 // remember to set your topic:
-const topic = '[your_topic]';
+const topic = 'PMS/u/Bartka';
+let smsTimestamp = ""
 
 // serial port config
 const port = new SerialPort({
@@ -28,6 +31,7 @@ port.on('data', (data) => {
     // identify data frame (starting with 42 4D)
     if (buffer[0] === 0x42 && buffer[1] === 0x4D) {
       const frame = buffer.slice(0, 32);
+      console.log("dzialamy")
 
       // handle checksum:
       const checksum = frame.slice(0, 30).reduce((sum, val) => sum + val, 0);
@@ -45,6 +49,21 @@ port.on('data', (data) => {
           pm10: pm10,
           timestamp: new Date().toISOString(),
         });
+
+        console.log(pmData)
+
+        // too high level detected:
+        if(pmData.pm1_0 > 45 || pmData.pm2_5 > 15 ){
+          //check if SMS was sent recently
+          const now = new Date();
+          const diffInMs = now - smsTimestamp;
+          const diffInHours = diffInMs / (1000 * 60 * 60);
+
+          if (diffInHours >= 2) {
+            sendSMS();
+            smsTimestamp = pmData.timestamp;
+          }   
+        }
 
         publishToBroker(pmData);
       } else {
@@ -90,3 +109,24 @@ function publishToBroker(data) {
     console.error('Error with MQTT broker: ', error);
   });
 }
+
+function sendSMS(){
+  const accessToken = process.env.SMS_API_TOKEN;
+
+  const data = {
+    to: process.env.PHONE_NUM, 
+    message: 'Przekroczono norme jakosci powietrza w czujniku. Sprawdz aktualne wartosci w aplikacji.',
+    from: 'Test'
+  };
+
+  axios.post('https://api.smsapi.pl/sms.do', qs.stringify(data), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
+    .then(res => {
+      console.log('Response from SMS API: ', res.data);
+    })
+  }
+
